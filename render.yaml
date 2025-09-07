@@ -6,7 +6,7 @@ services:
       # Instalar dependencias de Python
       pip install -r requirements.txt
 
-      # Instalar Node si no está (Render ya tiene Node disponible en la imagen)
+      # Entrar a back y construir frontend con npm
       cd back
       npm install
       npm run build
@@ -19,7 +19,7 @@ services:
       # Collect static y migraciones de Django
       python back/manage.py collectstatic --noinput
       python back/manage.py migrate
-    startCommand: gunicorn back.wsgi:application --bind 0.0.0.0:$PORT
+    startCommand: gunicorn back.back.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: back.settings
