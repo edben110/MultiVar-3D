@@ -2,10 +2,18 @@ services:
   - type: web
     name: multivar-3d
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn back.wsgi:application
+    buildCommand: |
+      pip install -r requirements.txt
+      python back/manage.py collectstatic --noinput
+      python back/manage.py migrate
+    startCommand: gunicorn back.back.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: back.settings
       - key: PYTHON_VERSION
-        value: 3.12
+        value: 3.11
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: False
+    autoDeploy: true
