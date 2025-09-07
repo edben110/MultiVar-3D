@@ -4,9 +4,15 @@ services:
     env: python
     buildCommand: |
       pip install -r requirements.txt
+      cd front
+      npm install
+      npm run build
+      cd ..
+      mkdir -p back/api/static/dist
+      cp -r front/dist/* back/api/static/dist/
       python back/manage.py collectstatic --noinput
       python back/manage.py migrate
-    startCommand: gunicorn back.wsgi:application --chdir back --bind 0.0.0.0:$PORT
+    startCommand: gunicorn back.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: back.settings
