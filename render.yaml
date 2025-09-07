@@ -2,23 +2,7 @@ services:
   - type: web
     name: multivar-3d
     env: python
-    buildCommand: |
-      # Instalar dependencias de Python
-      pip install -r requirements.txt
-
-      # Instalar Node.js y npm
-      curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-      sudo apt-get install -y nodejs
-
-      # Entrar a back y construir frontend con npm
-      cd back
-      npm install
-      npm run build
-      cd ..
-
-      # Collect static y migraciones de Django
-      python back/manage.py collectstatic --noinput
-      python back/manage.py migrate
+    buildCommand: ./build.sh
     startCommand: gunicorn back.back.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: DJANGO_SETTINGS_MODULE
