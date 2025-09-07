@@ -3,13 +3,20 @@ services:
     name: multivar-3d
     env: python
     buildCommand: |
+      # Instalar dependencias de Python
       pip install -r requirements.txt
+
+      # Instalar Node si no está (Render ya tiene Node disponible en la imagen)
       cd back
       npm install
       npm run build
       cd ..
+
+      # Copiar el bundle generado a la carpeta static de Django
       mkdir -p back/api/static/dist
-      cp -r back/api/static/dist/
+      cp -r back/api/static/dist/* back/api/static/dist/
+
+      # Collect static y migraciones de Django
       python back/manage.py collectstatic --noinput
       python back/manage.py migrate
     startCommand: gunicorn back.wsgi:application --bind 0.0.0.0:$PORT
