@@ -10,10 +10,12 @@ sudo apt-get install -y nodejs
 # Instalar dependencias de Node.js de la raíz
 npm install
 
-# Entrar a back y construir frontend con npm
+# Construir frontend con webpack desde la raíz
+npx webpack --mode production
+
+# Entrar a back e instalar dependencias
 cd back
 npm install
-npm run build
 cd ..
 
 # Collect static y migraciones de Django
