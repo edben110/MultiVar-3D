@@ -3,29 +3,16 @@ services:
     name: multivar-3d
     env: python
     buildCommand: |
-      # Instalar dependencias de Python
       pip install -r requirements.txt
-
-      # Entrar a la carpeta de Django + frontend
-      cd back/api
-
-      # Instalar dependencias de frontend y generar build
+      cd back
       npm install
       npm run build
-
-      # Crear carpeta de destino para los archivos estáticos
-      mkdir -p static/dist
-
-      # Copiar todos los archivos del build a la carpeta de estáticos de Django
-      cp -r dist/* static/dist/
-
-      # Volver al root y ejecutar collectstatic y migraciones
-      cd ../..
+      cd ..
+      mkdir -p back/api/static/dist
+      cp -r back/api/static/dist/
       python back/manage.py collectstatic --noinput
       python back/manage.py migrate
-
     startCommand: gunicorn back.wsgi:application --bind 0.0.0.0:$PORT
-
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: back.settings
@@ -35,5 +22,4 @@ services:
         generateValue: true
       - key: DEBUG
         value: False
-
     autoDeploy: true
