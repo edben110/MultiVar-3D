@@ -10,15 +10,43 @@
 </head>
 <body>
   <div id="panel">
-    <input id="expr" placeholder="Ej: x^2 + y^2">
-    <select id="op">
-      <option value="superficie">Graficar superficie</option>
-      <option value="derivada_x">Derivada parcial respecto a x</option>
-      <option value="derivada_y">Derivada parcial respecto a y</option>
-      <option value="integral_doble">Integral doble</option>
-    </select>
-    <button id="btnCalcular">Calcular</button>
-    <div id="resultado"></div>
+    <div class="panel-header">
+      <h3>MultiVar 3D</h3>
+      <button id="themeToggle" class="theme-toggle-btn" title="Cambiar tema">
+        <span class="theme-icon">🌙</span>
+      </button>
+    </div>
+    
+    <div class="input-group">
+      <label for="expr">Función matemática</label>
+      <input id="expr" placeholder="Ej: x^2 + y^2" value="x^2 + y^2">
+      <div class="example-buttons">
+        <button class="example-btn" data-expr="x^2 + y^2">Paraboloide</button>
+        <button class="example-btn" data-expr="x^2 - y^2">Silla de montar</button>
+        <button class="example-btn" data-expr="x^2/4 + y^2/9">Elipsoide 2D</button>
+        <button class="example-btn" data-expr="sin(x) + cos(y)">Onda</button>
+        <button class="example-btn" data-expr="x*y">Silla hiperbólica</button>
+        <button class="example-btn" data-expr="sqrt(x^2 + y^2)">Cono</button>
+      </div>
+    </div>
+    
+    <div class="input-group">
+      <label for="op">Operación</label>
+      <select id="op">
+        <option value="superficie">Graficar superficie</option>
+        <option value="derivada_x">Derivada parcial respecto a x</option>
+        <option value="derivada_y">Derivada parcial respecto a y</option>
+        <option value="integral_doble">Integral doble</option>
+      </select>
+    </div>
+    
+    
+    <button id="btnCalcular" class="btn-primary">
+      <span class="btn-icon">📊</span>
+      Calcular
+    </button>
+    
+    <div id="resultado" class="resultado"></div>
   </div>
 
   <!-- Cargar bundle generado por Webpack -->
