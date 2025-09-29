@@ -5,7 +5,6 @@
 <head>
   <meta charset="UTF-8">
   <title>MultiVar 3D</title>
-  <!-- Enlazamos el CSS externo -->
   <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 </head>
 <body>
@@ -18,15 +17,15 @@
     </div>
     
     <div class="input-group">
-      <label for="expr">Función matemática</label>
-      <input id="expr" placeholder="Ej: x^2 + y^2" value="x^2 + y^2">
+      <label for="expr">Función matemática (usa x, y, z)</label>
+      <input id="expr" placeholder="Ej: x^2 + y^2 + z^2" value="x^2 + y^2">
       <div class="example-buttons">
         <button class="example-btn" data-expr="x^2 + y^2">Paraboloide</button>
         <button class="example-btn" data-expr="x^2 - y^2">Silla de montar</button>
-        <button class="example-btn" data-expr="x^2/4 + y^2/9">Elipsoide 2D</button>
+        <button class="example-btn" data-expr="x^2 + y^2 + z^2">Esfera</button>
         <button class="example-btn" data-expr="sin(x) + cos(y)">Onda</button>
-        <button class="example-btn" data-expr="x*y">Silla hiperbólica</button>
-        <button class="example-btn" data-expr="sqrt(x^2 + y^2)">Cono</button>
+        <button class="example-btn" data-expr="x*y*z">Hiperboloide</button>
+        <button class="example-btn" data-expr="sqrt(x^2 + y^2 + z^2)">Cono 3D</button>
       </div>
     </div>
     
@@ -36,10 +35,20 @@
         <option value="superficie">Graficar superficie</option>
         <option value="derivada_x">Derivada parcial respecto a x</option>
         <option value="derivada_y">Derivada parcial respecto a y</option>
+        <option value="derivada_z">Derivada parcial respecto a z</option>
         <option value="integral_doble">Integral doble</option>
+        <option value="integral_triple">Integral triple</option>
+        <option value="dominio_rango">Dominio y rango (estimado)</option>
+        <option value="limite">Límite en (a,b)</option>
+        <option value="gradiente">Gradiente en (x0,y0)</option>
+        <option value="lagrange">Optimización con Lagrange</option>
       </select>
     </div>
-    
+
+    <!-- Contenedor para inputs dinámicos según operación -->
+    <div id="op-params" class="input-group" style="display:none;">
+      <!-- se rellenará con JS -->
+    </div>
     
     <button id="btnCalcular" class="btn-primary">
       <span class="btn-icon">📊</span>
@@ -49,7 +58,6 @@
     <div id="resultado" class="resultado"></div>
   </div>
 
-  <!-- Cargar bundle generado por Webpack -->
   <script src="{% static 'dist/bundle.js' %}"></script>
 </body>
 </html>
