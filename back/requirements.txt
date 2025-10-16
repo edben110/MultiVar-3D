@@ -11,4 +11,5 @@ sympy==1.14.0
 tzdata==2025.2
 whitenoise==6.9.0
 python-dotenv==1.0.0
+requests==2.31.0
 
