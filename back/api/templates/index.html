@@ -59,5 +59,75 @@
   </div>
 
   <script src="{% static 'dist/bundle.js' %}"></script>
+  <script>const opSelect = document.getElementById('op');
+const opParams = document.getElementById('op-params');
+
+const paramTemplates = {
+  limite: `
+    <label>a (x → a)</label><input id="a" value="0">
+    <label>b (y → b)</label><input id="b" value="0">
+  `,
+  lagrange: `
+    <label>Restricción g(x,y)</label><input id="g" value="x^2 + y^2">
+    <label>Constante c</label><input id="c" value="1">
+  `,
+  superficie: `
+    <label>xmin</label><input id="xmin" value="-3">
+    <label>xmax</label><input id="xmax" value="3">
+    <label>ymin</label><input id="ymin" value="-3">
+    <label>ymax</label><input id="ymax" value="3">
+    <label>nx</label><input id="nx" value="60">
+    <label>ny</label><input id="ny" value="60">
+  `
+};
+
+opSelect.addEventListener('change', () => {
+  const op = opSelect.value;
+  if (paramTemplates[op]) {
+    opParams.style.display = 'block';
+    opParams.innerHTML = paramTemplates[op];
+  } else {
+    opParams.style.display = 'none';
+    opParams.innerHTML = '';
+  }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const opSelect = document.getElementById('op');
+  const paramsDiv = document.getElementById('op-params');
+
+  opSelect.addEventListener('change', () => {
+    const op = opSelect.value;
+    paramsDiv.innerHTML = ''; // limpia anteriores
+    paramsDiv.style.display = 'none';
+
+    if (op === 'limite') {
+      paramsDiv.style.display = 'block';
+      paramsDiv.innerHTML = `
+        <label for="a">a:</label><input id="a" type="number" value="0">
+        <label for="b">b:</label><input id="b" type="number" value="0">
+      `;
+    }
+
+    if (op === 'gradiente') {
+      paramsDiv.style.display = 'block';
+      paramsDiv.innerHTML = `
+        <label for="x0">x₀:</label><input id="x0" type="number" value="0">
+        <label for="y0">y₀:</label><input id="y0" type="number" value="0">
+      `;
+    }
+
+    if (op === 'lagrange') {
+      paramsDiv.style.display = 'block';
+      paramsDiv.innerHTML = `
+        <label for="g">Función objetivo g(x,y):</label>
+        <input id="g" placeholder="Ej: x^2 + y^2">
+        <label for="c">Restricción c(x,y)=0:</label>
+        <input id="c" placeholder="Ej: x + y - 1">
+      `;
+    }
+  });
+});
+
+</script>
 </body>
 </html>
