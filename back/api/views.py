@@ -36,7 +36,9 @@ def wolfram_query(input_text: str):
     claves_validas = [
         "result", "results", "solution", "solutions",
         "definite integral", "indefinite integral",
-        "derivative", "limit", "gradient", "domain", "range"
+        "derivative", "limit", "gradient", "domain", "range",
+        "global maxima", "global minima", "extrema", "critical points",
+        "maximize", "minimize", "maximum", "minimum"
     ]
 
     for pod in pods:
@@ -314,13 +316,16 @@ def calcular(request):
             b = request.GET.get("b", "0")
             query = f"limit of {expr_s} as x->{a} and y->{b}"
         elif op == "dominio_rango":
+            # Usar formato más efectivo para Wolfram
             query = f"domain and range of {expr_s}"
         elif op == "lagrange":
             g = request.GET.get("g")
             c = request.GET.get("c")
             if not g or not c:
                 return JsonResponse({"error": "g y c requeridos para Lagrange"})
-            query = f"solve gradient of {expr_s} = lambda * gradient of {g} with constraint {g}={c}"
+            # Formato correcto para Wolfram: maximize/minimize con constraint
+            # Intentar ambos (máximo y mínimo)
+            query = f"extrema of {expr_s} subject to {g} = {c}"
         else:
             return JsonResponse({"error": "Operación no reconocida"}, status=400)
 

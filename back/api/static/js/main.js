@@ -568,12 +568,15 @@ async function calcular() {
                 resultadoDiv.innerHTML = `<span style="color: #ef4444;">❌ No se pudo calcular ${op}</span>`;
             }
         } else if (op === "dominio_rango") {
-            const min = data.rango_min, max = data.rango_max;
-            const ratio = data.dominio_valido_ratio;
-            resultadoDiv.innerHTML = `<span style="color: #10b981;">✅ Dominio/Rango estimado:</span><br>
-                <strong>Rango mínimo:</strong> ${min}<br>
-                <strong>Rango máximo:</strong> ${max}<br>
-                <strong>Proporción de puntos válidos en malla:</strong> ${(ratio*100).toFixed(2)}%`;
+            // Respuesta viene como texto simple de Wolfram
+            if (data.dominio_rango) {
+                resultadoDiv.innerHTML = `<span style="color: #10b981;">✅ Dominio y Rango:</span><br>
+                    <div style="background: var(--bg-secondary); padding: 12px; border-radius: 8px; margin-top: 8px;">
+                        <pre style="margin: 0; white-space: pre-wrap; font-family: 'Courier New', monospace;">${data.dominio_rango}</pre>
+                    </div>`;
+            } else {
+                resultadoDiv.innerHTML = `<span style="color: #ef4444;">❌ No se pudo calcular el dominio y rango</span>`;
+            }
         } else if (op === "limite") {
             if (data.limite) {
                 resultadoDiv.innerHTML = `<span style="color: #10b981;">✅ Límite:</span><br><code>${data.limite}</code><br>
@@ -615,14 +618,17 @@ async function calcular() {
                 resultadoDiv.innerHTML = `<span style="color: #ef4444;">❌ No se pudo calcular el gradiente</span>`;
             }
         } else if (op === "lagrange") {
-            if (data.lagrange_solutions) {
-                if (data.lagrange_solutions.length === 0) {
-                    resultadoDiv.innerHTML = `<span style="color:#ef4444;">No se encontraron soluciones reales con Lagrange.</span>`;
-                } else {
-                    resultadoDiv.innerHTML = `<span style="color:#10b981;">✅ Soluciones (x,y,λ):</span><br><pre>${JSON.stringify(data.lagrange_solutions, null, 2)}</pre>`;
-                }
+            // Respuesta viene como texto simple de Wolfram
+            if (data.lagrange) {
+                resultadoDiv.innerHTML = `<span style="color: #10b981;">✅ Extremos con Lagrange:</span><br>
+                    <div style="background: var(--bg-secondary); padding: 12px; border-radius: 8px; margin-top: 8px;">
+                        <pre style="margin: 0; white-space: pre-wrap; font-family: 'Courier New', monospace;">${data.lagrange}</pre>
+                    </div>
+                    <small style="color: var(--text-muted); margin-top: 8px; display: block;">
+                        💡 Estos son los puntos críticos encontrados mediante multiplicadores de Lagrange
+                    </small>`;
             } else {
-                resultadoDiv.innerHTML = `<span style="color:#ef4444;">❌ Error en Lagrange</span>`;
+                resultadoDiv.innerHTML = `<span style="color: #ef4444;">❌ No se pudo calcular con Lagrange</span>`;
             }
         } else {
             resultadoDiv.innerHTML = `<code>${JSON.stringify(data)}</code>`;
