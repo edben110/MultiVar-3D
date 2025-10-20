@@ -1,19 +1,17 @@
 #!/bin/bash
+set -e  # Detener si hay errores
 
 # Instalar dependencias de Python
 pip install -r requirements.txt
 
-# Instalar dependencias de Node.js de la raíz
+# Instalar dependencias de Node.js
 npm install
 
-# Construir frontend con webpack desde la raíz
+# Construir frontend con webpack
 npx webpack --mode production
 
 # Recopilar archivos estáticos de Django
 cd back
-python manage.py collectstatic --noinput
+python manage.py collectstatic --noinput --clear
+python manage.py migrate --noinput
 cd ..
-
-# Collect static y migraciones de Django
-python back/manage.py collectstatic --noinput
-python back/manage.py migrate
