@@ -20,12 +20,12 @@
       <label for="expr">Función matemática (usa x, y, z)</label>
       <input id="expr" placeholder="Ej: x^2 + y^2 + z^2" value="x^2 + y^2">
       <div class="example-buttons">
-        <button class="example-btn" data-expr="x^2 + y^2">Paraboloide</button>
-        <button class="example-btn" data-expr="x^2 - y^2">Silla de montar</button>
-        <button class="example-btn" data-expr="x^2 + y^2 + z^2">Esfera</button>
-        <button class="example-btn" data-expr="sin(x) + cos(y)">Onda</button>
-        <button class="example-btn" data-expr="x*y*z">Hiperboloide</button>
-        <button class="example-btn" data-expr="sqrt(x^2 + y^2 + z^2)">Cono 3D</button>
+        <button class="example-btn" data-expr="x^2 + y^2" data-iso="0">Paraboloide</button>
+        <button class="example-btn" data-expr="x^2 - y^2" data-iso="0">Silla de montar</button>
+        <button class="example-btn" data-expr="x^2 + y^2 + z^2" data-iso="9">Esfera (r=3)</button>
+        <button class="example-btn" data-expr="sin(x) + cos(y)" data-iso="0">Onda</button>
+        <button class="example-btn" data-expr="x^2 + y^2 - z^2" data-iso="0">Hiperboloide</button>
+        <button class="example-btn" data-expr="sqrt(x^2 + y^2) - z" data-iso="0">Cono</button>
       </div>
     </div>
     
@@ -59,7 +59,8 @@
   </div>
 
   <script src="{% static 'dist/bundle.js' %}"></script>
-  <script>const opSelect = document.getElementById('op');
+  <script>
+const opSelect = document.getElementById('op');
 const opParams = document.getElementById('op-params');
 
 const paramTemplates = {
@@ -72,12 +73,22 @@ const paramTemplates = {
     <label>Constante c</label><input id="c" value="1">
   `,
   superficie: `
-    <label>xmin</label><input id="xmin" value="-3">
-    <label>xmax</label><input id="xmax" value="3">
-    <label>ymin</label><input id="ymin" value="-3">
-    <label>ymax</label><input id="ymax" value="3">
-    <label>nx</label><input id="nx" value="60">
-    <label>ny</label><input id="ny" value="60">
+    <label>Rango X</label>
+    <input name="xmin" placeholder="xmin (ej: -3)" value="-3" />
+    <input name="xmax" placeholder="xmax (ej: 3)" value="3" />
+    <label>Rango Y</label>
+    <input name="ymin" placeholder="ymin (ej: -3)" value="-3" />
+    <input name="ymax" placeholder="ymax (ej: 3)" value="3" />
+    <label>Rango Z (para funciones implícitas)</label>
+    <input name="zmin" placeholder="zmin (ej: -3)" value="-3" />
+    <input name="zmax" placeholder="zmax (ej: 3)" value="3" />
+    <label>Resolución (nx, ny, nz)</label>
+    <input name="nx" placeholder="nx (ej: 40)" value="40" />
+    <input name="ny" placeholder="ny (ej: 40)" value="40" />
+    <input name="nz" placeholder="nz (ej: 40)" value="40" />
+    <label>Isovalor (para funciones implícitas)</label>
+    <input name="iso_value" placeholder="iso_value (ej: 0)" value="0" />
+    <small>Para esferas usa: x^2+y^2+z^2 con iso_value=9 (radio 3)</small>
   `
 };
 
@@ -127,6 +138,59 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+function showOpParamsFor(op) {
+    clearOpParams();
+    if (op === 'limite') {
+        opParams.style.display = 'block';
+        opParams.innerHTML = `
+            <label>a (x → a)</label><input id="a" value="0">
+            <label>b (y → b)</label><input id="b" value="0">
+        `;
+    } else if (op === 'gradiente') {
+        opParams.style.display = 'block';
+        opParams.innerHTML = `
+            <label for="x0">x₀:</label><input id="x0" type="number" value="0">
+            <label for="y0">y₀:</label><input id="y0" type="number" value="0">
+        `;
+    } else if (op === 'lagrange') {
+        opParams.style.display = 'block';
+        opParams.innerHTML = `
+            <label>Restricción g(x,y)</label><input id="g" value="x^2 + y^2">
+            <label>Constante c</label><input id="c" value="1">
+        `;
+    } else if (op === 'superficie') {
+        opParams.style.display = 'block';
+        opParams.innerHTML = `
+            <label>Rango X</label>
+            <input name="xmin" placeholder="xmin (ej: -3)" value="-3" />
+            <input name="xmax" placeholder="xmax (ej: 3)" value="3" />
+            <label>Rango Y</label>
+            <input name="ymin" placeholder="ymin (ej: -3)" value="-3" />
+            <input name="ymax" placeholder="ymax (ej: 3)" value="3" />
+            <label>Rango Z (para funciones implícitas)</label>
+            <input name="zmin" placeholder="zmin (ej: -3)" value="-3" />
+            <input name="zmax" placeholder="zmax (ej: 3)" value="3" />
+            <label>Resolución (nx, ny, nz)</label>
+            <input name="nx" placeholder="nx (ej: 50)" value="50" />
+            <input name="ny" placeholder="ny (ej: 50)" value="50" />
+            <input name="nz" placeholder="nz (ej: 50)" value="50" />
+            <label>Isovalor (para funciones implícitas)</label>
+            <input name="iso_value" placeholder="iso_value (ej: 0)" value="0" />
+            <small>Mayor resolución = superficies más suaves (recomendado: 50-60)</small>
+        `;
+    } else {
+        clearOpParams();
+    }
+}
+
+// Ejecutar al cambiar operación
+opSelect.addEventListener('change', (e) => {
+    showOpParamsFor(e.target.value);
+});
+
+// Inicializar con la operación actual
+showOpParamsFor(opSelect.value);
 
 </script>
 </body>

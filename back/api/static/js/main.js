@@ -6,14 +6,13 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xf0f0f0);
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(8, 8, 8);
+camera.position.set(8, 6, 10);  // Posición ajustada para ver Z vertical
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.update();
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 controls.minDistance = 3;
@@ -22,13 +21,18 @@ controls.target.set(0, 0, 0);
 controls.update();
 
 const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-directionalLight.position.set(10, 20, 10);
+directionalLight.position.set(10, 15, 10);
 scene.add(directionalLight);
 const ambientLight = new THREE.AmbientLight(0x404040, 0.25);
 scene.add(ambientLight);
-scene.add(new THREE.AxesHelper(5));
 
-const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x444444);
+// Ejes en configuración estándar de Three.js (Y es vertical por defecto)
+const axesHelper = new THREE.AxesHelper(5);
+scene.add(axesHelper);
+
+// Grid en el plano XZ (horizontal por defecto en Three.js, Y=0)
+// Este es el plano horizontal estándar
+const gridHelper = new THREE.GridHelper(20, 20, 0x888888, 0x444444);
 scene.add(gridHelper);
 
 // Theme functions (igual)
@@ -56,7 +60,7 @@ let wireframeMesh = null;
 let pointsObj = null;
 let gradientArrow = null;
 
-// ==== creación de geometrías (idénticas) ====
+// ==== creación de geometrías con Z vertical ====
 function createSurfaceFromData(X, Y, Z) {
     const geometry = new THREE.BufferGeometry();
     const vertices = [];
@@ -74,11 +78,12 @@ function createSurfaceFromData(X, Y, Z) {
             const x = X[j];
             const y = Y[i];
             const z = Z[i][j];
-            vertices.push(x, y, z);
+            // Intercambiar Y y Z para que Z sea vertical
+            vertices.push(x, z, y);
             colors.push(
                 (x - X[0]) / (X[X.length - 1] - X[0] || 1),
-                (y - Y[0]) / (Y[Y.length - 1] - Y[0] || 1),
-                (z - zMin) / (zMax - zMin || 1)
+                (z - zMin) / (zMax - zMin || 1),
+                (y - Y[0]) / (Y[Y.length - 1] - Y[0] || 1)
             );
         }
     }
@@ -118,14 +123,16 @@ function createWireframeFromData(X, Y, Z) {
         for (let j = 0; j < cols - 1; j++) {
             const a = { x: X[j], y: Y[i], z: Z[i][j] };
             const b = { x: X[j + 1], y: Y[i], z: Z[i][j + 1] };
-            positions.push(a.x, a.y, a.z, b.x, b.y, b.z);
+            // Intercambiar Y y Z
+            positions.push(a.x, a.z, a.y, b.x, b.z, b.y);
         }
     }
     for (let j = 0; j < cols; j++) {
         for (let i = 0; i < rows - 1; i++) {
             const a = { x: X[j], y: Y[i], z: Z[i][j] };
             const b = { x: X[j], y: Y[i + 1], z: Z[i + 1][j] };
-            positions.push(a.x, a.y, a.z, b.x, b.y, b.z);
+            // Intercambiar Y y Z
+            positions.push(a.x, a.z, a.y, b.x, b.z, b.y);
         }
     }
 
@@ -148,11 +155,12 @@ function createPointsFromData(X, Y, Z) {
             const x = X[j];
             const y = Y[i];
             const z = Z[i][j];
-            positions.push(x, y, z);
+            // Intercambiar Y y Z
+            positions.push(x, z, y);
             colors.push(
                 (x - X[0]) / (X[X.length - 1] - X[0] || 1),
-                (y - Y[0]) / (Y[Y.length - 1] - Y[0] || 1),
-                (z - zMin) / (zMax - zMin || 1)
+                (z - zMin) / (zMax - zMin || 1),
+                (y - Y[0]) / (Y[Y.length - 1] - Y[0] || 1)
             );
         }
     }
@@ -161,6 +169,145 @@ function createPointsFromData(X, Y, Z) {
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     const material = new THREE.PointsMaterial({ size: 0.05, vertexColors: true });
+    return new THREE.Points(geometry, material);
+}
+
+// ==== Función para crear malla sólida de superficie implícita ====
+function createImplicitMesh(vertices, faces) {
+    const geometry = new THREE.BufferGeometry();
+    const positions = [];
+    const colors = [];
+    
+    // Calcular rangos para colorear
+    const xVals = vertices.map(v => v[0]);
+    const yVals = vertices.map(v => v[1]);
+    const zVals = vertices.map(v => v[2]);
+    
+    const xMin = Math.min(...xVals);
+    const xMax = Math.max(...xVals);
+    const yMin = Math.min(...yVals);
+    const yMax = Math.max(...yVals);
+    const zMin = Math.min(...zVals);
+    const zMax = Math.max(...zVals);
+    
+    const xRange = xMax - xMin || 1;
+    const yRange = yMax - yMin || 1;
+    const zRange = zMax - zMin || 1;
+    
+    // Construir geometría a partir de caras
+    for (const face of faces) {
+        for (const vertexIndex of face) {
+            const vertex = vertices[vertexIndex];
+            // Backend envía (x,y,z), Three.js usa Y como vertical
+            // Intercambiar: backend_z → threejs_y (vertical)
+            //               backend_y → threejs_z (profundidad)
+            positions.push(vertex[0], vertex[2], vertex[1]);
+            
+            // Color basado en posición (gradiente arcoíris)
+            const nx = (vertex[0] - xMin) / xRange;
+            const ny = (vertex[1] - yMin) / yRange;
+            const nz = (vertex[2] - zMin) / zRange;
+            
+            // Gradiente basado en altura Z (que ahora es el eje vertical)
+            const t = nz;
+            if (t < 0.25) {
+                const s = t / 0.25;
+                colors.push(0.2, 0.2 + s * 0.6, 1.0);
+            } else if (t < 0.5) {
+                const s = (t - 0.25) / 0.25;
+                colors.push(0.2 + s * 0.4, 0.8, 1.0 - s * 0.4);
+            } else if (t < 0.75) {
+                const s = (t - 0.5) / 0.25;
+                colors.push(0.6 + s * 0.4, 0.8 - s * 0.3, 0.6 - s * 0.4);
+            } else {
+                const s = (t - 0.75) / 0.25;
+                colors.push(1.0, 0.5 - s * 0.3, 0.2);
+            }
+        }
+    }
+    
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.computeVertexNormals();
+    
+    const material = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        side: THREE.DoubleSide,
+        flatShading: false,
+        metalness: 0.3,
+        roughness: 0.6
+    });
+    
+    return new THREE.Mesh(geometry, material);
+}
+
+// ==== Función para crear nube de puntos (fallback) ====
+function createImplicitSurface(vertices, values = null) {
+    const geometry = new THREE.BufferGeometry();
+    const positions = [];
+    const colors = [];
+
+    // Si tenemos valores de la función, usar para colorear
+    if (values && values.length === vertices.length) {
+        const valMin = Math.min(...values);
+        const valMax = Math.max(...values);
+        const valRange = valMax - valMin || 1;
+        
+        for (let i = 0; i < vertices.length; i++) {
+            const vertex = vertices[i];
+            positions.push(vertex[0], vertex[1], vertex[2]);
+            
+            // Color basado en el valor de la función
+            const t = (values[i] - valMin) / valRange;
+            // Gradiente: azul -> cyan -> verde -> amarillo -> rojo
+            if (t < 0.25) {
+                const s = t / 0.25;
+                colors.push(0, s, 1);
+            } else if (t < 0.5) {
+                const s = (t - 0.25) / 0.25;
+                colors.push(0, 1, 1 - s);
+            } else if (t < 0.75) {
+                const s = (t - 0.5) / 0.25;
+                colors.push(s, 1, 0);
+            } else {
+                const s = (t - 0.75) / 0.25;
+                colors.push(1, 1 - s, 0);
+            }
+        }
+    } else {
+        // Calcular rango para colores basados en posición
+        const xVals = vertices.map(v => v[0]);
+        const yVals = vertices.map(v => v[1]);
+        const zVals = vertices.map(v => v[2]);
+        
+        const xMin = Math.min(...xVals);
+        const xMax = Math.max(...xVals);
+        const yMin = Math.min(...yVals);
+        const yMax = Math.max(...yVals);
+        const zMin = Math.min(...zVals);
+        const zMax = Math.max(...zVals);
+
+        for (const vertex of vertices) {
+            positions.push(vertex[0], vertex[1], vertex[2]);
+            
+            // Color basado en posición
+            colors.push(
+                (vertex[0] - xMin) / (xMax - xMin || 1),
+                (vertex[1] - yMin) / (yMax - yMin || 1),
+                (vertex[2] - zMin) / (zMax - zMin || 1)
+            );
+        }
+    }
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    
+    const material = new THREE.PointsMaterial({ 
+        size: 0.1, 
+        vertexColors: true,
+        sizeAttenuation: true
+    });
+    
     return new THREE.Points(geometry, material);
 }
 
@@ -207,20 +354,64 @@ async function calcular() {
             if (wireframeMesh) { scene.remove(wireframeMesh); wireframeMesh.geometry.dispose(); wireframeMesh.material.dispose(); wireframeMesh = null; }
             if (pointsObj) { scene.remove(pointsObj); pointsObj.geometry.dispose(); pointsObj.material.dispose(); pointsObj = null; }
 
-            if (!data.x || !data.y || !data.z || data.x.length === 0 || data.y.length === 0 || data.z.length === 0) {
-                resultadoDiv.innerHTML = '<span style="color: #ef4444;">❌ Esta fórmula no es válida para graficar en 3D</span>';
-                return;
-            }
-            const zValues = data.z.flat();
-            const hasValidValues = zValues.some(z => !isNaN(z) && isFinite(z));
-            if (!hasValidValues) {
-                resultadoDiv.innerHTML = '<span style="color: #ef4444;">❌ Esta fórmula no genera valores válidos para graficar</span>';
-                return;
-            }
+            console.log('Datos recibidos:', data);
+            
+            // Verificar tipo de superficie
+            if (data.type === "implicit_mesh") {
+                // Superficie implícita con malla triangular (nueva)
+                console.log('Tipo: implicit_mesh, vertices:', data.vertices?.length, 'faces:', data.faces?.length);
+                
+                if (!data.vertices || data.vertices.length === 0 || !data.faces || data.faces.length === 0) {
+                    resultadoDiv.innerHTML = '<span style="color: #ef4444;">❌ No se pudo generar malla para esta superficie</span>';
+                    return;
+                }
+                
+                surfaceMesh = createImplicitMesh(data.vertices, data.faces);
+                scene.add(surfaceMesh);
+                
+                const valMin = data.value_range ? data.value_range[0].toFixed(2) : 'N/A';
+                const valMax = data.value_range ? data.value_range[1].toFixed(2) : 'N/A';
+                
+                resultadoDiv.innerHTML = `<span style="color: #10b981;">✅ Superficie 3D graficada</span><br>
+                    <small>Vértices: ${data.vertices.length} | Caras: ${data.faces.length} | Isovalor: ${data.iso_value.toFixed(2)}</small><br>
+                    <small>Rango: [${valMin}, ${valMax}]</small>`;
+                    
+            } else if (data.type === "implicit") {
+                // Superficie implícita con puntos (fallback)
+                console.log('Tipo: implicit, vertices:', data.vertices?.length);
+                
+                if (!data.vertices || data.vertices.length === 0) {
+                    resultadoDiv.innerHTML = '<span style="color: #ef4444;">❌ No se generaron puntos para la superficie implícita</span>';
+                    return;
+                }
+                
+                pointsObj = createImplicitSurface(data.vertices, data.values);
+                scene.add(pointsObj);
+                
+                const valMin = data.values ? Math.min(...data.values).toFixed(2) : 'N/A';
+                const valMax = data.values ? Math.max(...data.values).toFixed(2) : 'N/A';
+                
+                resultadoDiv.innerHTML = `<span style="color: #10b981;">✅ Superficie 3D graficada (puntos)</span><br>
+                    <small>Puntos: ${data.vertices.length} | Rango: [${valMin}, ${valMax}]</small>`;
+                    
+            } else if (data.type === "explicit") {
+                // Superficie explícita z = f(x,y)
+                if (!data.x || !data.y || !data.z || data.x.length === 0 || data.y.length === 0 || data.z.length === 0) {
+                    resultadoDiv.innerHTML = '<span style="color: #ef4444;">❌ Esta fórmula no es válida para graficar en 3D</span>';
+                    return;
+                }
+                const zValues = data.z.flat();
+                const hasValidValues = zValues.some(z => !isNaN(z) && isFinite(z));
+                if (!hasValidValues) {
+                    resultadoDiv.innerHTML = '<span style="color: #ef4444;">❌ Esta fórmula no genera valores válidos para graficar</span>';
+                    return;
+                }
 
-            surfaceMesh = createSurfaceFromData(data.x, data.y, data.z);
-            scene.add(surfaceMesh);
-            resultadoDiv.innerHTML = '<span style="color: #10b981;">✅ Superficie graficada correctamente</span>';
+                surfaceMesh = createSurfaceFromData(data.x, data.y, data.z);
+                scene.add(surfaceMesh);
+
+                resultadoDiv.innerHTML = '<span style="color: #10b981;">✅ Superficie graficada correctamente</span>';
+            }
         } else if (op.startsWith("derivada")) {
             if (data.derivada) {
                 resultadoDiv.innerHTML = `<span style="color: #10b981;">✅ Resultado:</span><br><code>${data.derivada}</code>`;
@@ -381,8 +572,23 @@ const exampleButtons = document.querySelectorAll('.example-btn');
 exampleButtons.forEach(btn => {
     btn.addEventListener('click', () => {
         const expr = btn.getAttribute('data-expr');
+        const iso = btn.getAttribute('data-iso');
         document.getElementById('expr').value = expr;
-        calcular();
+        
+        // Si tiene isovalor definido, asegurarse de que la operación sea "superficie" y configurarlo
+        if (iso !== null) {
+            document.getElementById('op').value = 'superficie';
+            showOpParamsFor('superficie');
+            // Esperar a que se rendericen los inputs
+            setTimeout(() => {
+                const isoInput = document.querySelector('input[name="iso_value"]');
+                if (isoInput) {
+                    isoInput.value = iso;
+                }
+            }, 50);
+        }
+        
+        setTimeout(() => calcular(), 100);
     });
 });
 
