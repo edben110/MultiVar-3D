@@ -59,6 +59,7 @@ let surfaceMesh = null;
 let wireframeMesh = null;
 let pointsObj = null;
 let gradientArrow = null;
+let gradientFieldGroup = null;  // Grupo para almacenar múltiples flechas del campo
 
 // ==== creación de geometrías con Z vertical ====
 function createSurfaceFromData(X, Y, Z) {
@@ -311,6 +312,107 @@ function createImplicitSurface(vertices, values = null) {
     return new THREE.Points(geometry, material);
 }
 
+// ==== Función para crear campo de gradientes con flechas ====
+function createGradientField(vectors) {
+    const group = new THREE.Group();
+    
+    console.log('createGradientField llamado con', vectors.length, 'vectores');
+    
+    if (!vectors || vectors.length === 0) {
+        console.warn('No hay vectores para crear el campo');
+        return group;
+    }
+    
+    // Encontrar magnitud máxima para normalizar colores
+    const maxMagnitude = Math.max(...vectors.map(v => v.magnitude));
+    const minMagnitude = Math.min(...vectors.map(v => v.magnitude));
+    
+    console.log('Rango de magnitudes:', minMagnitude, '-', maxMagnitude);
+    
+    let arrowCount = 0;
+    let sphereCount = 0;
+    
+    vectors.forEach((vectorData, index) => {
+        const pos = vectorData.position;
+        const grad = vectorData.gradient;
+        const magnitude = vectorData.magnitude;
+        
+        // Log del primer vector para debug
+        if (index === 0) {
+            console.log('Primer vector - pos:', pos, 'grad:', grad, 'mag:', magnitude);
+        }
+        
+        // Posición: proyectar al plano XY (Y=0 en Three.js)
+        // Backend envía [x, y, z] donde z es f(x,y)
+        // Para visualizar mejor, ponemos las flechas en el plano horizontal (Y=0)
+        // Three.js: X=pos[0], Y=0 (plano), Z=pos[1]
+        const origin = new THREE.Vector3(pos[0], 0, pos[1]);
+        
+        // Dirección del gradiente: solo componentes X y Z (horizontal)
+        // grad[0] = df/dx, grad[1] = df/dy, grad[2] = 0 (siempre)
+        // En Three.js: X=grad[0], Y=0, Z=grad[1]
+        const direction = new THREE.Vector3(grad[0], 0, grad[1]);
+        
+        if (direction.length() < 0.001) {
+            // Gradiente casi cero - punto crítico (mínimo/máximo/silla)
+            // Dibujar una esfera en el plano para marcar puntos críticos
+            const sphereGeometry = new THREE.SphereGeometry(0.15, 16, 16);
+            const sphereMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xffff00,  // Amarillo para puntos críticos
+                transparent: true,
+                opacity: 0.9
+            });
+            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            sphere.position.copy(origin);
+            group.add(sphere);
+            sphereCount++;
+        } else {
+            // Normalizar dirección
+            direction.normalize();
+            
+            // Longitud de la flecha ajustada para visualización en el plano
+            const arrowLength = 0.3 + (magnitude / (maxMagnitude || 1)) * 0.7;
+            
+            // Color según magnitud (azul = mínima, rojo = máxima)
+            const t = maxMagnitude > minMagnitude ? 
+                (magnitude - minMagnitude) / (maxMagnitude - minMagnitude) : 0.5;
+            
+            // Gradiente de color: azul -> verde -> amarillo -> rojo
+            let color;
+            if (t < 0.33) {
+                // Azul a verde
+                const s = t / 0.33;
+                color = new THREE.Color(0, s, 1 - s * 0.5);
+            } else if (t < 0.67) {
+                // Verde a amarillo
+                const s = (t - 0.33) / 0.34;
+                color = new THREE.Color(s, 1, 0.5 - s * 0.5);
+            } else {
+                // Amarillo a rojo
+                const s = (t - 0.67) / 0.33;
+                color = new THREE.Color(1, 1 - s, 0);
+            }
+            
+            // Crear flecha
+            const arrow = new THREE.ArrowHelper(
+                direction,
+                origin,
+                arrowLength,
+                color.getHex(),
+                arrowLength * 0.3,  // Longitud de la punta
+                arrowLength * 0.2   // Ancho de la punta
+            );
+            
+            group.add(arrow);
+            arrowCount++;
+        }
+    });
+    
+    console.log('Campo creado:', arrowCount, 'flechas,', sphereCount, 'esferas');
+    
+    return group;
+}
+
 // ==== Llamada al backend y manejo de respuestas ====
 async function calcular() {
     const expr = document.getElementById("expr").value || "x^2+y^2";
@@ -346,6 +448,16 @@ async function calcular() {
         if (gradientArrow) {
             scene.remove(gradientArrow);
             gradientArrow = null;
+        }
+        
+        // Limpiar campo de gradientes previo
+        if (gradientFieldGroup) {
+            scene.remove(gradientFieldGroup);
+            gradientFieldGroup.traverse((child) => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+            });
+            gradientFieldGroup = null;
         }
 
         if (op === "superficie") {
@@ -411,6 +523,36 @@ async function calcular() {
                 scene.add(surfaceMesh);
 
                 resultadoDiv.innerHTML = '<span style="color: #10b981;">✅ Superficie graficada correctamente</span>';
+            }
+        } else if (op === "campo_gradiente") {
+            // Campo de gradientes con flechas vectoriales
+            console.log('Procesando campo_gradiente, data:', data);
+            
+            if (data.type === "gradient_field" && data.vectors && data.vectors.length > 0) {
+                console.log('Creando campo con', data.vectors.length, 'vectores');
+                
+                // NO limpiar superficies para poder ver ambos simultáneamente
+                // Solo limpiar el campo de gradientes previo si existe
+                
+                // Crear campo de flechas
+                gradientFieldGroup = createGradientField(data.vectors);
+                console.log('Grupo creado, hijos:', gradientFieldGroup.children.length);
+                
+                scene.add(gradientFieldGroup);
+                console.log('Grupo agregado a la escena');
+                
+                // Contar puntos críticos (gradiente casi cero)
+                const criticalPoints = data.vectors.filter(v => v.magnitude < 0.01).length;
+                
+                resultadoDiv.innerHTML = `<span style="color: #10b981;">✅ Campo de gradientes graficado</span><br>
+                    <small>Vectores: ${data.vectors.length}</small><br>
+                    <small>Objetos en grupo: ${gradientFieldGroup.children.length}</small><br>
+                    <small>Puntos críticos (∇f ≈ 0): ${criticalPoints} <span style="color: #ffff00;">●</span></small><br>
+                    <small style="color: #888;">🔵 Magnitud baja → 🔴 Magnitud alta</small><br>
+                    <small>Las flechas apuntan hacia la dirección de máximo crecimiento</small>`;
+            } else {
+                console.error('No se pudo procesar:', data);
+                resultadoDiv.innerHTML = '<span style="color: #ef4444;">❌ No se pudo generar el campo de gradientes</span>';
             }
         } else if (op.startsWith("derivada")) {
             if (data.derivada) {
@@ -537,25 +679,89 @@ function showOpParamsFor(op) {
     if (op === 'limite') {
         opParams.style.display = 'block';
         opParams.innerHTML = `
-            <label>Punto a (a,b)</label>
-            <input name="a" placeholder="a (ej: 0)" />
-            <input name="b" placeholder="b (ej: 0)" />
+            <h4 style="margin: 10px 0 8px 0; color: var(--text-color); font-size: 14px;">Punto límite (a, b)</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label style="font-size: 12px; color: var(--text-muted);">Coordenada a</label>
+                    <input name="a" type="number" placeholder="0" step="0.1" style="width: 100%;" />
+                </div>
+                <div>
+                    <label style="font-size: 12px; color: var(--text-muted);">Coordenada b</label>
+                    <input name="b" type="number" placeholder="0" step="0.1" style="width: 100%;" />
+                </div>
+            </div>
+            <small style="color: var(--text-muted); font-size: 11px;">Se calculará lim(x,y)→(a,b) f(x,y)</small>
         `;
     } else if (op === 'gradiente') {
         opParams.style.display = 'block';
         opParams.innerHTML = `
-            <label>Punto (x0,y0) y opcional z0 para dibujar flecha</label>
-            <input name="x0" placeholder="x0 (ej: 1)" />
-            <input name="y0" placeholder="y0 (ej: 0)" />
-            <input name="z0" placeholder="z0 (ej: 0)" />
+            <h4 style="margin: 10px 0 8px 0; color: var(--text-color); font-size: 14px;">Punto para evaluar gradiente</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                <div>
+                    <label style="font-size: 12px; color: var(--text-muted);">x₀</label>
+                    <input name="x0" type="number" placeholder="1" step="0.1" style="width: 100%;" />
+                </div>
+                <div>
+                    <label style="font-size: 12px; color: var(--text-muted);">y₀</label>
+                    <input name="y0" type="number" placeholder="0" step="0.1" style="width: 100%;" />
+                </div>
+                <div>
+                    <label style="font-size: 12px; color: var(--text-muted);">z₀ (opcional)</label>
+                    <input name="z0" type="number" placeholder="0" step="0.1" style="width: 100%;" />
+                </div>
+            </div>
+            <small style="color: var(--text-muted); font-size: 11px;">Se dibujará una flecha en el punto (x₀, y₀, z₀) con dirección ∇f</small>
+        `;
+    } else if (op === 'campo_gradiente') {
+        opParams.style.display = 'block';
+        opParams.innerHTML = `
+            <div style="margin-bottom: 15px;">
+                <h4 style="margin: 10px 0 8px 0; color: var(--text-color); font-size: 14px;">Rango en X</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 12px; color: var(--text-muted);">X mínimo</label>
+                        <input name="xmin" type="number" value="-3" step="0.5" style="width: 100%;" />
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; color: var(--text-muted);">X máximo</label>
+                        <input name="xmax" type="number" value="3" step="0.5" style="width: 100%;" />
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <h4 style="margin: 10px 0 8px 0; color: var(--text-color); font-size: 14px;">Rango en Y</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 12px; color: var(--text-muted);">Y mínimo</label>
+                        <input name="ymin" type="number" value="-3" step="0.5" style="width: 100%;" />
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; color: var(--text-muted);">Y máximo</label>
+                        <input name="ymax" type="number" value="3" step="0.5" style="width: 100%;" />
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 10px;">
+                <label style="font-size: 12px; color: var(--text-muted);">Densidad de grilla (cantidad de flechas por eje)</label>
+                <input name="grid_size" type="number" value="10" min="5" max="30" step="1" style="width: 100%;" />
+                <small style="color: var(--text-muted); font-size: 11px;">Total de flechas: grid_size × grid_size (ej: 10×10 = 100 flechas)</small>
+            </div>
         `;
     } else if (op === 'lagrange') {
         opParams.style.display = 'block';
         opParams.innerHTML = `
-            <label>Restricción g(x,y) = c</label>
-            <input name="g" placeholder="g(x,y) (ej: x^2 + y^2)" />
-            <input name="c" placeholder="c (ej: 1)" />
-            <small>Ej: para buscar extremos con restricción x^2+y^2=1 => g="x^2+y^2" y c="1"</small>
+            <h4 style="margin: 10px 0 8px 0; color: var(--text-color); font-size: 14px;">Restricción g(x,y) = c</h4>
+            <div style="margin-bottom: 10px;">
+                <label style="font-size: 12px; color: var(--text-muted);">Función restricción g(x,y)</label>
+                <input name="g" placeholder="Ej: x^2 + y^2" style="width: 100%;" />
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label style="font-size: 12px; color: var(--text-muted);">Valor constante c</label>
+                <input name="c" type="number" placeholder="1" step="0.1" style="width: 100%;" />
+            </div>
+            <small style="color: var(--text-muted); font-size: 11px;">Ejemplo: para extremos con restricción x²+y²=1, usar g="x^2+y^2" y c="1"</small>
         `;
     } else {
         // otras operaciones no requieren parámetros

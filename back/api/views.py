@@ -248,6 +248,58 @@ def calcular(request):
                     "z": ZZ.tolist()
                 })
 
+        # --- CAMPO DE GRADIENTES ---
+        elif op == "campo_gradiente":
+            from sympy import diff
+            
+            xmin = float(request.GET.get("xmin", -3))
+            xmax = float(request.GET.get("xmax", 3))
+            ymin = float(request.GET.get("ymin", -3))
+            ymax = float(request.GET.get("ymax", 3))
+            grid_size = int(request.GET.get("grid_size", 10))  # Número de flechas por eje
+            
+            expr = sympify(expr_s_sym)
+            
+            # Calcular derivadas parciales simbólicamente
+            df_dx = diff(expr, x)
+            df_dy = diff(expr, y)
+            
+            # Convertir a funciones numéricas
+            f = lambdify((x, y), expr, "numpy")
+            grad_x = lambdify((x, y), df_dx, "numpy")
+            grad_y = lambdify((x, y), df_dy, "numpy")
+            
+            # Crear grilla de puntos
+            X = np.linspace(xmin, xmax, grid_size)
+            Y = np.linspace(ymin, ymax, grid_size)
+            
+            # Calcular gradiente en cada punto
+            vectors = []
+            for xi in X:
+                for yi in Y:
+                    try:
+                        # Evaluar función en el punto
+                        zi = float(f(xi, yi))
+                        # Evaluar gradiente
+                        gx = float(grad_x(xi, yi))
+                        gy = float(grad_y(xi, yi))
+                        
+                        # Verificar que sean valores válidos
+                        if np.isfinite([xi, yi, zi, gx, gy]).all():
+                            vectors.append({
+                                "position": [float(xi), float(yi), float(zi)],
+                                "gradient": [float(gx), float(gy), 0],  # gz=0 para z=f(x,y)
+                                "magnitude": float(np.sqrt(gx**2 + gy**2))
+                            })
+                    except:
+                        continue
+            
+            return JsonResponse({
+                "type": "gradient_field",
+                "vectors": vectors,
+                "expression": expr_s
+            })
+
         # --- OPERACIONES CON WOLFRAM ---
         elif op == "derivada_x":
             query = f"derivative of {expr_s} with respect to x"
@@ -261,8 +313,6 @@ def calcular(request):
             a = request.GET.get("a", "0")
             b = request.GET.get("b", "0")
             query = f"limit of {expr_s} as x->{a} and y->{b}"
-        elif op == "gradiente":
-            query = f"gradient of {expr_s}"
         elif op == "dominio_rango":
             query = f"domain and range of {expr_s}"
         elif op == "lagrange":
@@ -287,12 +337,8 @@ def calcular(request):
             return JsonResponse({"derivada": valor})
         elif op == "integral_doble":
             return JsonResponse({"integral": valor})
-        elif op == "integral_triple":
-            return JsonResponse({"integral_triple": valor})
         elif op == "limite":
             return JsonResponse({"limite": valor})
-        elif op == "gradiente":
-            return JsonResponse({"gradiente": valor})
         elif op == "dominio_rango":
             return JsonResponse({"dominio_rango": valor})
         elif op == "lagrange":
